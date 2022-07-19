@@ -1,0 +1,46 @@
+From 694a18cface1ea81640904b0895692e4e184b6e7 Mon Sep 17 00:00:00 2001
+From: Bill Brinzer <bill.brinzer@minevisionsystems.com>
+Date: Mon, 18 Jul 2022 16:53:03 -0400
+Subject: [PATCH] Fix tcmalloc for aarch64 kernel with CONFIG_ARM64_VA_BITS=39
+
+See <https://github.com/envoyproxy/envoy/issues/15235#issuecomment-850516622>.
+---
+ src/common.h | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/src/common.h b/src/common.h
+index caa3e4a..1e89c94 100644
+--- a/src/common.h
++++ b/src/common.h
+@@ -118,7 +118,27 @@ static const int kMaxDynamicFreeListLength = 8192;
+ 
+ static const Length kMaxValidPages = (~static_cast<Length>(0)) >> kPageShift;
+ 
+-#if __aarch64__ || __x86_64__ || _M_AMD64 || _M_ARM64
++#if __aarch64__
++// BUG(wbrinzer):
++// The discussion below of "64-bit arms" addresses is wrong and it causes
++// problems on L4T (and apparently Raspberry Pi). Aarch64 page tables with 4KB
++// granule size can have either 3 levels (39 bit VA) or 4 levels (48 bit VA).
++// `zgrep CONFIG_ARM64_VA_BITS /proc/config.gz` to see which one your kernel is
++// using.
++//
++// See
++// <https://github.com/envoyproxy/envoy/issues/15235#issuecomment-850516622>
++//
++// There is also <https://github.com/google/tcmalloc/pull/50> which would be
++// interesting to import.
++//
++// IMPORTANT! This is a gross hack. Binaries built this way will crash on
++// aarch64 systems with 4-level page tables, e.g., AWS Graviton	instances. For
++// a fully general build we should actually do something similar to
++// <https://github.com/openjdk/jdk/pull/40>; see
++// <https://github.com/google/tcmalloc/issues/82> for rationale.
++static const int kAddressBits = (sizeof(void*) < 8 ? (8 * sizeof(void*)) : 39);
++#elif __x86_64__ || _M_AMD64 || _M_ARM64
+ // All current x86_64 processors only look at the lower 48 bits in
+ // virtual to physical address translation. The top 16 are all same as
+ // bit 47. And bit 47 value 1 reserved for kernel-space addresses in
+-- 
+2.37.0
+
