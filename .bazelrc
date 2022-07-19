@@ -88,6 +88,12 @@ build:clang --linkopt=-fuse-ld=lld
 build:clang --action_env=CC=clang --host_action_env=CC=clang
 build:clang --action_env=CXX=clang++ --host_action_env=CXX=clang++
 
+# Clang-14 with host and target the same
+build:clang-toolchain --crosstool_top=//toolchain:clang_toolchain
+build:clang-toolchain --action_env=CC=clang-14 --action_env=CXX=clang++-14 --action_env=LD=ld.lld-14
+build:clang-toolchain --linkopt=-fuse-ld=lld-14
+build:clang-toolchain --define tcmalloc=gperftools
+
 # Flags for Clang + PCH
 build:clang-pch --spawn_strategy=local
 build:clang-pch --define=ENVOY_CLANG_PCH=1
